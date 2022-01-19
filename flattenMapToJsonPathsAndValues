@@ -1,0 +1,35 @@
+private Map<String, Object> flattenMapWithPaths(Map<String, Object> body) {
+    return body.entrySet().stream().flatMap(this::flatten)
+        .collect(HashMap::new, (m,v)->m.put(v.getKey(), v.getValue()), HashMap::putAll);
+  }
+
+  public Stream<Entry<String, Object>> flatten(Map.Entry<String, Object> entry) {
+    if (entry.getValue() instanceof Map<?, ?>) {
+      Map<String, Object> nested = (Map<String, Object>) entry.getValue();
+
+      return nested.entrySet().stream()
+          .map(e -> new SimpleEntry<>(entry.getKey() + "." + e.getKey(), e.getValue()))
+          .flatMap(this::flatten);
+    } else if (entry.getValue() instanceof List<?>) {
+      return flattenArray(new SimpleEntry<>(entry.getKey(), (List) entry.getValue()));
+    }
+    return Stream.of(entry);
+  }
+
+  public Stream<Entry<String, Object>> flattenArray(Map.Entry<String, List> entry) {
+    AtomicInteger idxCounter = new AtomicInteger(-1);
+    return entry.getValue().stream().flatMap(item -> {
+      int idx = idxCounter.incrementAndGet();
+      if (item instanceof Map) {
+        Map<String, Object> nested = (Map<String, Object>) item;
+
+        return nested.entrySet().stream()
+            .map(e -> new SimpleEntry<>(entry.getKey() + "[" + idx + "]." + e.getKey(), e.getValue()))
+            .flatMap(this::flatten);
+      } else if (item instanceof List) {
+        return flattenArray(new SimpleEntry<>(entry.getKey() + "[" + idx + "]", (List) item));
+      } else {
+        return new SimpleEntry<>(entry.getKey() + "[" + idx + "]", item);
+      }
+    });
+  }
